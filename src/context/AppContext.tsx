@@ -616,66 +616,81 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importDataJson = (json: string): boolean => {
     try {
       const parsed = JSON.parse(json);
+      if (Array.isArray(parsed)) {
+        if (parsed.length > 0 && ('code' in parsed[0] || 'classroom' in parsed[0])) {
+          const nextState: AppState = {
+            ...state,
+            courses: parsed,
+          };
+          setState(nextState);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+          safeSupabaseCall(async (supabase) => {
+            await supabase
+              .from('courses')
+              .upsert(parsed.map((c) => ({ ...toDbCourse(c), ...(user?.id ? { user_id: user.id } : {}) })));
+          });
+          return true;
+        }
+        return false;
+      }
       if (parsed && typeof parsed === 'object') {
         const nextState: AppState = {
-          focusTasks: parsed.focusTasks || state.focusTasks || [],
-          projects: parsed.projects || state.projects || [],
-          courses: parsed.courses || state.courses || [],
-          academicTasks: parsed.academicTasks || state.academicTasks || [],
-          clientOrders: parsed.clientOrders || state.clientOrders || [],
-          contentItems: parsed.contentItems || state.contentItems || [],
-          transactions: parsed.transactions || state.transactions || [],
-          notes: parsed.notes || state.notes || [],
+          focusTasks: Array.isArray(parsed.focusTasks) ? parsed.focusTasks : (state.focusTasks || []),
+          projects: Array.isArray(parsed.projects) ? parsed.projects : (state.projects || []),
+          courses: Array.isArray(parsed.courses) ? parsed.courses : (state.courses || []),
+          academicTasks: Array.isArray(parsed.academicTasks) ? parsed.academicTasks : (state.academicTasks || []),
+          clientOrders: Array.isArray(parsed.clientOrders) ? parsed.clientOrders : (state.clientOrders || []),
+          contentItems: Array.isArray(parsed.contentItems) ? parsed.contentItems : (state.contentItems || []),
+          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : (state.transactions || []),
+          notes: Array.isArray(parsed.notes) ? parsed.notes : (state.notes || []),
         };
         setState(nextState);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
 
-        // If authenticated with Supabase, sync immediately to user's account
-        if (user) {
-          safeSupabaseCall(async (supabase) => {
-            if (nextState.courses && nextState.courses.length > 0) {
-              await supabase
-                .from('courses')
-                .upsert(nextState.courses.map((c) => ({ ...toDbCourse(c), user_id: user.id })));
-            }
-            if (nextState.academicTasks && nextState.academicTasks.length > 0) {
-              await supabase
-                .from('academic_tasks')
-                .upsert(nextState.academicTasks.map((t) => ({ ...toDbAcademicTask(t), user_id: user.id })));
-            }
-            if (nextState.projects && nextState.projects.length > 0) {
-              await supabase
-                .from('projects')
-                .upsert(nextState.projects.map((p) => ({ ...toDbProject(p), user_id: user.id })));
-            }
-            if (nextState.clientOrders && nextState.clientOrders.length > 0) {
-              await supabase
-                .from('client_orders')
-                .upsert(nextState.clientOrders.map((o) => ({ ...toDbClientOrder(o), user_id: user.id })));
-            }
-            if (nextState.contentItems && nextState.contentItems.length > 0) {
-              await supabase
-                .from('content_items')
-                .upsert(nextState.contentItems.map((c) => ({ ...toDbContentItem(c), user_id: user.id })));
-            }
-            if (nextState.transactions && nextState.transactions.length > 0) {
-              await supabase
-                .from('transactions')
-                .upsert(nextState.transactions.map((tx) => ({ ...toDbTransaction(tx), user_id: user.id })));
-            }
-            if (nextState.notes && nextState.notes.length > 0) {
-              await supabase
-                .from('quick_notes')
-                .upsert(nextState.notes.map((n) => ({ ...toDbNote(n), user_id: user.id })));
-            }
-            if (nextState.focusTasks && nextState.focusTasks.length > 0) {
-              await supabase
-                .from('focus_tasks')
-                .upsert(nextState.focusTasks.map((t) => ({ ...toDbTask(t), user_id: user.id })));
-            }
-            setSupabaseConnected(true);
-          });
-        }
+        // Sync immediately to Supabase
+        safeSupabaseCall(async (supabase) => {
+          if (nextState.courses && nextState.courses.length > 0) {
+            await supabase
+              .from('courses')
+              .upsert(nextState.courses.map((c) => ({ ...toDbCourse(c), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.academicTasks && nextState.academicTasks.length > 0) {
+            await supabase
+              .from('academic_tasks')
+              .upsert(nextState.academicTasks.map((t) => ({ ...toDbAcademicTask(t), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.projects && nextState.projects.length > 0) {
+            await supabase
+              .from('projects')
+              .upsert(nextState.projects.map((p) => ({ ...toDbProject(p), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.clientOrders && nextState.clientOrders.length > 0) {
+            await supabase
+              .from('client_orders')
+              .upsert(nextState.clientOrders.map((o) => ({ ...toDbClientOrder(o), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.contentItems && nextState.contentItems.length > 0) {
+            await supabase
+              .from('content_items')
+              .upsert(nextState.contentItems.map((c) => ({ ...toDbContentItem(c), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.transactions && nextState.transactions.length > 0) {
+            await supabase
+              .from('transactions')
+              .upsert(nextState.transactions.map((tx) => ({ ...toDbTransaction(tx), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.notes && nextState.notes.length > 0) {
+            await supabase
+              .from('quick_notes')
+              .upsert(nextState.notes.map((n) => ({ ...toDbNote(n), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.focusTasks && nextState.focusTasks.length > 0) {
+            await supabase
+              .from('focus_tasks')
+              .upsert(nextState.focusTasks.map((t) => ({ ...toDbTask(t), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          setSupabaseConnected(true);
+        });
 
         return true;
       }
