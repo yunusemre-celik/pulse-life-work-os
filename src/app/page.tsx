@@ -52,6 +52,18 @@ export default function Home() {
     setIsQuickAddOpen(true);
   };
 
+  // Keyboard shortcut to toggle sidebar: Ctrl+\ or Cmd+\ or Ctrl+B
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === '\\' || e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        toggleSidebarCollapse();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebarCollapse]);
+
   // If checking authentication
   if (isAuthChecking) {
     return (
@@ -73,18 +85,6 @@ export default function Home() {
       </>
     );
   }
-
-  // Keyboard shortcut to toggle sidebar: Ctrl+\ or Cmd+\ or Ctrl+B
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === '\\' || e.key === 'b' || e.key === 'B')) {
-        e.preventDefault();
-        toggleSidebarCollapse();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebarCollapse]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#fbfbfa] dark:bg-[#141414] relative">
