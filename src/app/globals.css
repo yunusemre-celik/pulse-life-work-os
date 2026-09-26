@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #fbfbfa;
+    --bg-surface: #ffffff;
+    --bg-subtle: #f7f7f5;
+    --border-color: #e9e9e7;
+    --text-primary: #37352f;
+    --text-secondary: #787774;
+    --text-muted: #9b9a97;
+  }
+
+  .dark {
+    --bg-main: #141414;
+    --bg-surface: #1e1e1e;
+    --bg-subtle: #252525;
+    --border-color: #2e2e2e;
+    --text-primary: #f0f0ef;
+    --text-secondary: #a0a09e;
+    --text-muted: #6e6e6b;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom scrollbars Notion style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.35);
+}
