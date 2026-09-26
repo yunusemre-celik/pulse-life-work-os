@@ -36,6 +36,13 @@ pnpm-debug.log*
 *.p12
 *.keystore
 
+# personal user data (CRITICAL - NEVER commit to git)
+my-data*.json
+user-data*.json
+*personal*.json
+courses*.json
+pulse-backup*.json
+
 # vercel
 .vercel
 

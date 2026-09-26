@@ -617,8 +617,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const parsed = JSON.parse(json);
       if (parsed && typeof parsed === 'object') {
-        setState(parsed);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(parsed));
+        const nextState: AppState = {
+          focusTasks: parsed.focusTasks || state.focusTasks || [],
+          projects: parsed.projects || state.projects || [],
+          courses: parsed.courses || state.courses || [],
+          academicTasks: parsed.academicTasks || state.academicTasks || [],
+          clientOrders: parsed.clientOrders || state.clientOrders || [],
+          contentItems: parsed.contentItems || state.contentItems || [],
+          transactions: parsed.transactions || state.transactions || [],
+          notes: parsed.notes || state.notes || [],
+        };
+        setState(nextState);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+
+        // If authenticated with Supabase, sync immediately to user's account
+        if (user) {
+          safeSupabaseCall(async (supabase) => {
+            if (nextState.courses && nextState.courses.length > 0) {
+              await supabase
+                .from('courses')
+                .upsert(nextState.courses.map((c) => ({ ...toDbCourse(c), user_id: user.id })));
+            }
+            if (nextState.academicTasks && nextState.academicTasks.length > 0) {
+              await supabase
+                .from('academic_tasks')
+                .upsert(nextState.academicTasks.map((t) => ({ ...toDbAcademicTask(t), user_id: user.id })));
+            }
+            if (nextState.projects && nextState.projects.length > 0) {
+              await supabase
+                .from('projects')
+                .upsert(nextState.projects.map((p) => ({ ...toDbProject(p), user_id: user.id })));
+            }
+            if (nextState.clientOrders && nextState.clientOrders.length > 0) {
+              await supabase
+                .from('client_orders')
+                .upsert(nextState.clientOrders.map((o) => ({ ...toDbClientOrder(o), user_id: user.id })));
+            }
+            if (nextState.contentItems && nextState.contentItems.length > 0) {
+              await supabase
+                .from('content_items')
+                .upsert(nextState.contentItems.map((c) => ({ ...toDbContentItem(c), user_id: user.id })));
+            }
+            if (nextState.transactions && nextState.transactions.length > 0) {
+              await supabase
+                .from('transactions')
+                .upsert(nextState.transactions.map((tx) => ({ ...toDbTransaction(tx), user_id: user.id })));
+            }
+            if (nextState.notes && nextState.notes.length > 0) {
+              await supabase
+                .from('quick_notes')
+                .upsert(nextState.notes.map((n) => ({ ...toDbNote(n), user_id: user.id })));
+            }
+            if (nextState.focusTasks && nextState.focusTasks.length > 0) {
+              await supabase
+                .from('focus_tasks')
+                .upsert(nextState.focusTasks.map((t) => ({ ...toDbTask(t), user_id: user.id })));
+            }
+            setSupabaseConnected(true);
+          });
+        }
+
         return true;
       }
       return false;
