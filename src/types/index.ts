@@ -37,6 +37,14 @@ export interface SoftwareProject {
   updatedAt: string;
 }
 
+export interface CourseSchedule {
+  dayOfWeek: DayOfWeek;
+  startTime: string; // Başlangıç Saati (Örn: "09:00")
+  endTime?: string; // Bitiş Saati (Örn: "10:50")
+  classroom?: string; // Derslik / Sınıf (Örn: BG-05 (78) / Derslik)
+  type?: string; // Teori, Uygulama, Laboratuvar vb.
+}
+
 export interface AcademicCourse {
   id: string;
   userId?: string;
@@ -47,6 +55,7 @@ export interface AcademicCourse {
   dayOfWeek?: DayOfWeek; // Ders Günü
   startTime?: string; // Başlangıç Saati (Örn: "10:30")
   endTime?: string; // Bitiş Saati (Örn: "12:20")
+  schedules?: CourseSchedule[]; // Birden fazla ders saati ve amfi desteği
   credits: number;
   ects: number;
   midtermGrade?: number | null;

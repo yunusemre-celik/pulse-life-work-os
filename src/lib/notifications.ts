@@ -180,27 +180,44 @@ export function checkPreClassNotifications(state: AppState): void {
   const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
   state.courses.forEach((course) => {
-    if (course.dayOfWeek === todayDay && course.startTime) {
-      const [cH, cM] = course.startTime.split(':').map(Number);
-      if (!isNaN(cH) && !isNaN(cM)) {
-        const courseTotalMinutes = cH * 60 + cM;
-        const diffMinutes = courseTotalMinutes - currentTotalMinutes;
+    const slots =
+      Array.isArray(course.schedules) && course.schedules.length > 0
+        ? course.schedules
+        : course.dayOfWeek && course.startTime
+        ? [
+            {
+              dayOfWeek: course.dayOfWeek,
+              startTime: course.startTime,
+              endTime: course.endTime,
+              classroom: course.classroom,
+            },
+          ]
+        : [];
 
-        // If class is in ~15 minutes (between 13 and 16 minutes window)
-        if (diffMinutes >= 13 && diffMinutes <= 16) {
-          const notifKey = `pulse_class_${course.id}_${todayDateString}`;
-          if (!localStorage.getItem(notifKey)) {
-            const classroomInfo = course.classroom ? ` (${course.classroom} dersliği)` : '';
-            sendPwaNotification(
-              `🔔 Ders Başlıyor: ${course.name}`,
-              `${course.code} dersiniz 15 dakika sonra saat ${course.startTime}'te${classroomInfo} başlıyor!`,
-              `pulse-course-${course.id}`
-            );
-            localStorage.setItem(notifKey, 'sent');
+    slots.forEach((slot) => {
+      if (slot.dayOfWeek === todayDay && slot.startTime) {
+        const [cH, cM] = slot.startTime.split(':').map(Number);
+        if (!isNaN(cH) && !isNaN(cM)) {
+          const courseTotalMinutes = cH * 60 + cM;
+          const diffMinutes = courseTotalMinutes - currentTotalMinutes;
+
+          // If class is in ~15 minutes (between 13 and 16 minutes window)
+          if (diffMinutes >= 13 && diffMinutes <= 16) {
+            const notifKey = `pulse_class_${course.code || course.id}_${slot.dayOfWeek}_${slot.startTime}_${todayDateString}`;
+            if (!localStorage.getItem(notifKey)) {
+              const classroom = slot.classroom || course.classroom;
+              const classroomInfo = classroom ? ` (${classroom} dersliği)` : '';
+              sendPwaNotification(
+                `🔔 Ders Başlıyor: ${course.name}`,
+                `${course.code} dersiniz 15 dakika sonra saat ${slot.startTime}'te${classroomInfo} başlıyor!`,
+                `pulse-course-${course.id}`
+              );
+              localStorage.setItem(notifKey, 'sent');
+            }
           }
         }
       }
-    }
+    });
   });
 }
 
