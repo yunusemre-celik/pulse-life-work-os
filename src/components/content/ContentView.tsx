@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { ContentItem } from '@/types';
+import { sanitizeUrl } from '@/lib/security';
 import { CreatorApiCards } from './CreatorApiCards';
 
 interface ContentViewProps {
@@ -213,11 +214,11 @@ export const ContentView: React.FC<ContentViewProps> = ({ onOpenAddContent, onOp
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  {item.url && (
+                  {sanitizeUrl(item.url) && (
                     <a
-                      href={item.url}
+                      href={sanitizeUrl(item.url)}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="p-1 text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                       title="İçeriğe Git"
                     >

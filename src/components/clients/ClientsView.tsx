@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { ClientDesignOrder } from '@/types';
+import { sanitizeUrl } from '@/lib/security';
 
 interface ClientsViewProps {
   onOpenAddOrder: () => void;
@@ -280,11 +281,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onOpenAddOrder }) => {
                         : `${daysLeft} gün kaldı`}
                     </span>
 
-                    {order.deliveryUrl && (
+                    {sanitizeUrl(order.deliveryUrl) && (
                       <a
-                        href={order.deliveryUrl}
+                        href={sanitizeUrl(order.deliveryUrl)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-medium"
                       >
                         <ExternalLink className="w-3 h-3" /> Figma / Dosyalar

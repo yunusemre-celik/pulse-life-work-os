@@ -19,6 +19,7 @@ import {
   formatTimeAgo,
   parseGithubUrl,
 } from '@/lib/github';
+import { sanitizeUrl } from '@/lib/security';
 
 interface GithubProjectWidgetProps {
   githubUrl: string;
@@ -122,15 +123,17 @@ export const GithubProjectWidget: React.FC<GithubProjectWidgetProps> = ({ github
               <span className="truncate max-w-[130px]">
                 {data.recentCommits[0].authorName}
               </span>
-              <a
-                href={data.recentCommits[0].url}
-                target="_blank"
-                rel="noreferrer"
-                className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-              >
-                <span>{data.recentCommits[0].shortSha}</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </a>
+              {sanitizeUrl(data.recentCommits[0].url) && (
+                <a
+                  href={sanitizeUrl(data.recentCommits[0].url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                >
+                  <span>{data.recentCommits[0].shortSha}</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
             </div>
           </div>
 

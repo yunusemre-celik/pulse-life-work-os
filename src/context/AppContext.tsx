@@ -269,6 +269,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
     }
     setUser(null);
+    setState(INITIAL_DATA);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.removeItem('pulse_github_token');
+      localStorage.removeItem('pulse_youtube_api_key');
+      localStorage.removeItem('pulse_youtube_channel_id');
+      localStorage.removeItem('pulse_instagram_token');
+      localStorage.removeItem('pulse_instagram_account_id');
+    }
   };
 
   // Supabase sync logic
@@ -340,16 +349,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Only trigger sync after authentication is established
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && user) {
       syncWithSupabase().catch(() => {});
     }
-  }, [isLoaded, syncWithSupabase]);
+  }, [isLoaded, user, syncWithSupabase]);
 
   // Focus Tasks CRUD
   const addFocusTask = (task: Omit<FocusTask, 'id' | 'createdAt'>) => {
     const newTask: FocusTask = {
       ...task,
+      userId: user?.id,
       id: `task-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
@@ -383,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addProject = (project: Omit<SoftwareProject, 'id' | 'updatedAt'>) => {
     const newProject: SoftwareProject = {
       ...project,
+      userId: user?.id,
       id: `proj-${Date.now()}`,
       updatedAt: new Date().toISOString().split('T')[0],
     };
@@ -429,7 +441,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Courses CRUD
   const addCourse = (course: Omit<AcademicCourse, 'id'>) => {
-    const newCourse: AcademicCourse = { ...course, id: `course-${Date.now()}` };
+    const newCourse: AcademicCourse = {
+      ...course,
+      userId: user?.id,
+      id: `course-${Date.now()}`,
+    };
     setState((prev) => ({ ...prev, courses: [...prev.courses, newCourse] }));
     safeSupabaseCall((client) => client.from('courses').insert(toDbCourse(newCourse)));
   };
@@ -452,7 +468,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Academic Tasks CRUD
   const addAcademicTask = (task: Omit<AcademicTask, 'id'>) => {
-    const newTask: AcademicTask = { ...task, id: `acad-${Date.now()}` };
+    const newTask: AcademicTask = {
+      ...task,
+      userId: user?.id,
+      id: `acad-${Date.now()}`,
+    };
     setState((prev) => ({ ...prev, academicTasks: [...prev.academicTasks, newTask] }));
     safeSupabaseCall((client) => client.from('academic_tasks').insert(toDbAcademicTask(newTask)));
   };
@@ -481,7 +501,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Client Orders CRUD
   const addClientOrder = (order: Omit<ClientDesignOrder, 'id'>) => {
-    const newOrder: ClientDesignOrder = { ...order, id: `ord-${Date.now()}` };
+    const newOrder: ClientDesignOrder = {
+      ...order,
+      userId: user?.id,
+      id: `ord-${Date.now()}`,
+    };
     setState((prev) => ({ ...prev, clientOrders: [newOrder, ...prev.clientOrders] }));
     safeSupabaseCall((client) => client.from('client_orders').insert(toDbClientOrder(newOrder)));
   };
@@ -504,7 +528,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Content Items CRUD
   const addContentItem = (item: Omit<ContentItem, 'id'>) => {
-    const newItem: ContentItem = { ...item, id: `cnt-${Date.now()}` };
+    const newItem: ContentItem = {
+      ...item,
+      userId: user?.id,
+      id: `cnt-${Date.now()}`,
+    };
     setState((prev) => ({ ...prev, contentItems: [newItem, ...prev.contentItems] }));
     safeSupabaseCall((client) => client.from('content_items').insert(toDbContentItem(newItem)));
   };
@@ -527,7 +555,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Transactions CRUD
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
+    const newTx: Transaction = {
+      ...tx,
+      userId: user?.id,
+      id: `tx-${Date.now()}`,
+    };
     setState((prev) => ({ ...prev, transactions: [newTx, ...prev.transactions] }));
     safeSupabaseCall((client) => client.from('transactions').insert(toDbTransaction(newTx)));
   };
@@ -544,6 +576,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addNote = (note: Omit<QuickNote, 'id' | 'updatedAt'>) => {
     const newNote: QuickNote = {
       ...note,
+      userId: user?.id,
       id: `note-${Date.now()}`,
       updatedAt: new Date().toISOString(),
     };

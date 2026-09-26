@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { SoftwareProject } from '@/types';
+import { sanitizeUrl } from '@/lib/security';
 import { GithubProjectWidget } from './GithubProjectWidget';
 
 interface ProjectsViewProps {
@@ -196,22 +197,22 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenAddProject }) 
             {/* Bottom Actions */}
             <div className="pt-3 border-t border-[#f0f0ee] dark:border-[#2a2a2a] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {project.githubUrl && (
+                {sanitizeUrl(project.githubUrl) && (
                   <a
-                    href={project.githubUrl}
+                    href={sanitizeUrl(project.githubUrl)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="p-1.5 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-[#f0f0ee] dark:hover:bg-[#2a2a2a] transition-colors"
                     title="GitHub Reposuna Git"
                   >
                     <Github className="w-3.5 h-3.5" />
                   </a>
                 )}
-                {project.liveUrl && (
+                {sanitizeUrl(project.liveUrl) && (
                   <a
-                    href={project.liveUrl}
+                    href={sanitizeUrl(project.liveUrl)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="p-1.5 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-[#f0f0ee] dark:hover:bg-[#2a2a2a] transition-colors"
                     title="Canlı Demo / Web Sitesi"
                   >

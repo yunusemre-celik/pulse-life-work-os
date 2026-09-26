@@ -134,8 +134,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setTesting(false);
 
     if (result.success) {
-      saveSupabaseCredentials(supabaseUrl, supabaseKey);
-      await syncWithSupabase();
+      try {
+        saveSupabaseCredentials(supabaseUrl, supabaseKey);
+        await syncWithSupabase();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Kayıt hatası';
+        setTestResult({ success: false, message: msg });
+      }
     }
   };
 

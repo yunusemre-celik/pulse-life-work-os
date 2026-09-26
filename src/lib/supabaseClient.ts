@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { isServiceRoleKey } from './security';
 
 const STORAGE_KEY_URL = 'pulse_supabase_url';
 const STORAGE_KEY_KEY = 'pulse_supabase_key';
@@ -22,8 +23,18 @@ export function getSupabaseCredentials() {
 
 export function saveSupabaseCredentials(url: string, key: string) {
   if (typeof window !== 'undefined') {
+    if (isServiceRoleKey(key)) {
+      throw new Error(
+        'GÜVENLİK UYARISI: Service Role (Secret) anahtarını istemciye giremezsiniz! Service role anahtarı tüm güvenlik duvarlarını aşar. Lütfen yalnızca Anon (Public) anahtarını kullanın.'
+      );
+    }
     localStorage.setItem(STORAGE_KEY_URL, url.trim());
     localStorage.setItem(STORAGE_KEY_KEY, key.trim());
+
+    // Invalidate client cache
+    cachedClient = null;
+    lastUsedUrl = '';
+    lastUsedKey = '';
   }
 }
 
@@ -31,11 +42,15 @@ export function clearSupabaseCredentials() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY_URL);
     localStorage.removeItem(STORAGE_KEY_KEY);
+    cachedClient = null;
+    lastUsedUrl = '';
+    lastUsedKey = '';
   }
 }
 
 let cachedClient: SupabaseClient | null = null;
 let lastUsedUrl = '';
+let lastUsedKey = '';
 
 export function getSupabaseClient(): SupabaseClient | null {
   const { url, key } = getSupabaseCredentials();
@@ -44,7 +59,7 @@ export function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  if (cachedClient && lastUsedUrl === url) {
+  if (cachedClient && lastUsedUrl === url && lastUsedKey === key) {
     return cachedClient;
   }
 
@@ -53,6 +68,7 @@ export function getSupabaseClient(): SupabaseClient | null {
       auth: { persistSession: true },
     });
     lastUsedUrl = url;
+    lastUsedKey = key;
     return cachedClient;
   } catch (err) {
     console.error('Supabase client creation error:', err);
@@ -62,6 +78,12 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 export async function testSupabaseConnection(url: string, key: string): Promise<{ success: boolean; message: string }> {
   try {
+    if (isServiceRoleKey(key)) {
+      return {
+        success: false,
+        message: 'GÜVENLİK UYARISI: Service Role anahtarı kullanılamaz! Lütfen Supabase panelinden Anon Key alın.',
+      };
+    }
     const testClient = createClient(url, key);
     // Try pinging or listing something simple
     const { error } = await testClient.from('projects').select('count', { count: 'exact', head: true });
