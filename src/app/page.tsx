@@ -20,6 +20,7 @@ import {
   Settings,
   Sun,
   Moon,
+  Plus,
 } from 'lucide-react';
 
 export default function Home() {
@@ -32,6 +33,7 @@ export default function Home() {
     isAuthChecking,
     isDark,
     toggleDarkMode,
+    supabaseConnected,
   } = useApp();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -114,28 +116,76 @@ export default function Home() {
 
       {/* Main Content Workspace (Minimalist Notion Style - No Horizontal Navbar!) */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
-        {/* Mobile Top Controls (Settings & Theme Buttons - Compact iPhone 12 Header) */}
-        <div className="md:hidden fixed top-3 right-3 z-30 flex items-center gap-1.5">
-          <button
-            onClick={toggleDarkMode}
-            className="p-1.5 rounded-full bg-white/80 dark:bg-[#222]/80 backdrop-blur-md border border-[#e5e5e3] dark:border-[#333] text-neutral-600 dark:text-neutral-300 shadow-xs"
-            title="Tema Değiştir"
-          >
-            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 rounded-full bg-white/80 dark:bg-[#222]/80 backdrop-blur-md border border-[#e5e5e3] dark:border-[#333] text-neutral-600 dark:text-neutral-300 shadow-xs"
-            title="Ayarlar"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {/* Mobile iOS Top Bar (Apple HIG & Safe Area Inset Compliant - Notch & Dynamic Island Safe) */}
+        <header
+          className="md:hidden sticky top-0 z-30 w-full bg-[#fbfbfa]/90 dark:bg-[#141414]/90 backdrop-blur-xl border-b border-[#e9e9e7]/80 dark:border-[#262626]/80 flex flex-col transition-colors select-none"
+          style={{
+            paddingTop: 'max(8px, env(safe-area-inset-top, 0px))',
+          }}
+        >
+          <div className="h-12 px-3.5 flex items-center justify-between">
+            {/* Active Workspace Title & Supabase Status */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base select-none">
+                {activeTab === 'dashboard' && '⚡'}
+                {activeTab === 'projects' && '💻'}
+                {activeTab === 'school' && '🎓'}
+                {activeTab === 'clients' && '🎨'}
+                {activeTab === 'content' && '📹'}
+                {activeTab === 'finance' && '💰'}
+                {activeTab === 'notes' && '📝'}
+              </span>
+              <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100 tracking-tight truncate">
+                {activeTab === 'dashboard' && 'Genel Bakış'}
+                {activeTab === 'projects' && 'Yazılım'}
+                {activeTab === 'school' && 'Okul'}
+                {activeTab === 'clients' && 'Müşteri'}
+                {activeTab === 'content' && 'İçerik'}
+                {activeTab === 'finance' && 'Finans'}
+                {activeTab === 'notes' && 'Notlar'}
+              </span>
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  supabaseConnected ? 'bg-emerald-500 shadow-xs' : 'bg-neutral-300 dark:bg-neutral-600'
+                }`}
+                title={supabaseConnected ? 'Bulut Senkronize' : 'Lokal Depolama'}
+              />
+            </div>
 
-        {/* Scrollable Content Body with iPhone 12 Safe Area Padding */}
+            {/* Quick Actions (Apple HIG min touch zone >= 36px) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => handleOpenQuickAdd()}
+                className="h-8 px-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 flex items-center gap-1 text-xs font-semibold shadow-xs active:scale-95 transition-all"
+                title="Hızlı Ekle"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="text-[11px]">Ekle</span>
+              </button>
+
+              <button
+                onClick={toggleDarkMode}
+                className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-[#222] hover:bg-neutral-200 dark:hover:bg-[#2c2c2c] border border-[#e5e5e3] dark:border-[#333] flex items-center justify-center text-neutral-700 dark:text-neutral-300 active:scale-95 transition-all"
+                title={isDark ? 'Açık Moda Geç' : 'Koyu Moda Geç'}
+              >
+                {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-blue-500" />}
+              </button>
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-[#222] hover:bg-neutral-200 dark:hover:bg-[#2c2c2c] border border-[#e5e5e3] dark:border-[#333] flex items-center justify-center text-neutral-700 dark:text-neutral-300 active:scale-95 transition-all"
+                title="Ayarlar & Veritabanı"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content Body with iPhone Safe Area Padding */}
         <main
           className={`flex-1 overflow-y-auto px-4 md:px-0 transition-all ${
-            isSidebarCollapsed ? 'pt-12 md:pt-14' : 'pt-2 md:pt-4'
+            isSidebarCollapsed ? 'pt-2 md:pt-14' : 'pt-2 md:pt-4'
           }`}
           style={{
             paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 76px)',

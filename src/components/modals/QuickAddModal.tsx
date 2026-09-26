@@ -228,8 +228,14 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-100">
-      <div className="bg-white dark:bg-[#1e1e1e] border border-[#e5e5e3] dark:border-[#2f2f2f] w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-100"
+      style={{
+        paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
+        paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+      }}
+    >
+      <div className="bg-white dark:bg-[#1e1e1e] border border-[#e5e5e3] dark:border-[#2f2f2f] w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Top Header */}
         <div className="px-6 py-3.5 border-b border-[#e9e9e7] dark:border-[#2e2e2e] flex items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-x-auto py-1">

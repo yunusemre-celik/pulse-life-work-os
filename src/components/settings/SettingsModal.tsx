@@ -18,6 +18,8 @@ import {
   Youtube,
   Instagram,
   Send,
+  DownloadCloud,
+  Share2,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import {
@@ -88,9 +90,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [eveningEnabled, setEveningEnabled] = useState(true);
   const [testNotifSent, setTestNotifSent] = useState(false);
 
+  // PWA Install Prompt State (progressive-web-app skill compliant)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+
   // Backup state
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+      setIsStandalone(standalone);
+
+      const ua = window.navigator.userAgent.toLowerCase();
+      setIsIos(/iphone|ipad|ipod/.test(ua));
+
+      const handleBeforeInstall = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+      return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -121,6 +148,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setTestNotifSent(false);
     }
   }, [isOpen]);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsStandalone(true);
+    }
+    setDeferredPrompt(null);
+  };
 
   if (!isOpen) return null;
 
@@ -219,8 +256,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-100">
-      <div className="bg-white dark:bg-[#1e1e1e] border border-[#e5e5e3] dark:border-[#2f2f2f] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-100"
+      style={{
+        paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
+        paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+      }}
+    >
+      <div className="bg-white dark:bg-[#1e1e1e] border border-[#e5e5e3] dark:border-[#2f2f2f] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#e9e9e7] dark:border-[#2e2e2e] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -246,6 +289,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {/* Body content */}
         <div className="p-6 overflow-y-auto space-y-6">
+          {/* PWA App Installation & Mode (progressive-web-app skill compliant) */}
+          <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-[#222222] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DownloadCloud className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
+                <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+                  PWA Uygulama Durumu
+                </h4>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  isStandalone
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                }`}
+              >
+                {isStandalone ? '⚡ Standalone Modu Aktif' : 'Tarayıcı Modu'}
+              </span>
+            </div>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              {isStandalone
+                ? 'Pulse OS şu anda tam ekran bağımsız (standalone) yerel uygulama olarak çalışıyor. Çevrimdışı önbellekleme devrededir.'
+                : 'Pulse OS\'u telefonunuza veya bilgisayarınıza yerel bir uygulama gibi yükleyerek internet olmadan da hızlıca açabilirsiniz.'}
+            </p>
+
+            {deferredPrompt && (
+              <button
+                type="button"
+                onClick={handleInstallApp}
+                className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <DownloadCloud className="w-3.5 h-3.5" />
+                <span>Pulse OS&apos;u Cihaza Yükle (PWA)</span>
+              </button>
+            )}
+
+            {!isStandalone && isIos && (
+              <div className="p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-[11px] text-neutral-700 dark:text-neutral-300 flex items-start gap-2">
+                <Share2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-blue-700 dark:text-blue-300">iPhone Kurulumu:</span> Safari&apos;de alttaki <strong>Paylaş</strong> simgesine dokunup <strong>&ldquo;Ana Ekrana Ekle&rdquo;</strong>yi seçerek tam ekran yerel modda kullanabilirsiniz.
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* SECTION 1: PWA Mobile Daily Notifications */}
           <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 space-y-3">
             <div className="flex items-center justify-between">

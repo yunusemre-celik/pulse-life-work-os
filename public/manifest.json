@@ -2,11 +2,15 @@
   "name": "Pulse — Kişisel İş & Yaşam Takip Konsolu",
   "short_name": "Pulse OS",
   "description": "Kişisel iş, okul, proje, tasarım siparişleri ve finans takip konsolu.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#191919",
-  "theme_color": "#191919",
+  "background_color": "#141414",
+  "theme_color": "#141414",
   "orientation": "portrait",
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon.svg",
@@ -25,6 +29,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Genel Bakış",
+      "short_name": "Özet",
+      "description": "Günün önceliklerine hızlı bakış",
+      "url": "/?tab=dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Yazılım Projeleri",
+      "short_name": "Projeler",
+      "description": "Projeler ve GitHub commit durumu",
+      "url": "/?tab=projects",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Finans & Kasa",
+      "short_name": "Finans",
+      "description": "Gelir ve gider durumu",
+      "url": "/?tab=finance",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

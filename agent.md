@@ -109,15 +109,19 @@ The app runs automated background checks every 60 seconds (`setInterval` in `src
 
 ---
 
-## 6. Mobile PWA & iPhone 12 Ergonomics
+## 6. Mobile PWA & iPhone Safe Area Architecture (`progressive-web-app` skill)
 
-1. **Viewport & Safe Areas**:
-   - Layout sets `viewport-fit=cover` and `<meta name="apple-mobile-web-app-capable" content="yes">`.
-   - Bottom navigation respects `env(safe-area-inset-bottom, 16px)` to avoid interfering with the iOS home indicator bar.
-2. **7-Tab Bottom Bar (`src/components/layout/BottomNav.tsx`)**:
-   - Specifically sized for 390px width (iPhone 12 display) with active tab indicators and badge counts.
-3. **No Redundant Global Quick-Add Button**:
-   - Per user directive, the floating global "Hızlı Ekle" button has been removed from both mobile and desktop views to maintain a clean aesthetic. Each section maintains its own contextual add actions.
+1. **PWA Skill Integration**:
+   - The workspace implements the official open-source `progressive-web-app` skill (`.agents/skills/progressive-web-app/SKILL.md`).
+   - Web App Manifest (`public/manifest.json`): Configured with `display: standalone`, `scope: /`, maskable icons (192x192 & 512x512), theme/background colors (`#141414`), and quick shortcuts.
+   - Service Worker (`public/sw.js`): Cache-first strategy for static assets/icons, network-first with offline fallback page for navigation, and bypass for Supabase/external APIs.
+   - Install Prompt: Browser-based `beforeinstallprompt` support and iOS Safari "Ana Ekrana Ekle" guidance built into `SettingsModal.tsx`.
+2. **iPhone Notch & Dynamic Island Safe-Area Header (`src/app/page.tsx`)**:
+   - Top mobile header uses `paddingTop: 'max(8px, env(safe-area-inset-top, 0px))'` with a frosted glass backdrop (`backdrop-blur-xl bg-[#fbfbfa]/90 dark:bg-[#141414]/90`).
+   - Controls (Quick Add, Theme Switcher, Settings) reside comfortably below the iOS status bar (47px–59px) to prevent being covered by the notch or Dynamic Island.
+3. **7-Tab Bottom Bar (`src/components/layout/BottomNav.tsx`)**:
+   - Padded with `paddingBottom: 'max(10px, env(safe-area-inset-bottom, 16px))'` to clear the iOS home indicator bar.
+   - Specifically sized with Apple HIG touch targets, active pill indicators, and subtle notification dots.
 
 ---
 
