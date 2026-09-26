@@ -1,0 +1,119 @@
+{
+  "focusTasks": [
+    {
+      "id": "tsk-sample-1",
+      "title": "Bugünün en öncelikli işini tamamla",
+      "completed": false,
+      "priority": "high",
+      "category": "dev",
+      "dueDate": "2026-09-30",
+      "createdAt": "2026-09-26T10:00:00.000Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj-sample-1",
+      "name": "Pulse OS",
+      "description": "Kişisel iş ve yaşam takip konsolu",
+      "category": "Web App",
+      "status": "Geliştirmede",
+      "techStack": ["Next.js", "TypeScript", "Tailwind CSS", "Supabase"],
+      "githubUrl": "https://github.com/yunusemre-celik/pulse-life-work-os",
+      "liveUrl": "https://pulse-os.vercel.app",
+      "progress": 85,
+      "tasks": [
+        { "id": "t-1", "title": "PWA Entegrasyonu", "completed": true },
+        { "id": "t-2", "title": "iOS Safe Area Ayarları", "completed": true }
+      ],
+      "updatedAt": "2026-09-26T20:00:00.000Z"
+    }
+  ],
+  "courses": [
+    {
+      "id": "crs-sample-1",
+      "name": "Yazılım Mimarisi ve Tasarım Prensipleri",
+      "code": "CENG-401",
+      "instructor": "Prof. Dr. Ahmet Yılmaz",
+      "classroom": "Amfi 2 (B-Blok)",
+      "dayOfWeek": "Pazartesi",
+      "startTime": "09:30",
+      "endTime": "12:20",
+      "credits": 4,
+      "ects": 6,
+      "midtermGrade": null,
+      "finalGrade": null,
+      "letterGradeGoal": "AA",
+      "status": "Devam Ediyor",
+      "colorTag": "#3b82f6"
+    }
+  ],
+  "academicTasks": [
+    {
+      "id": "act-sample-1",
+      "courseName": "Yazılım Mimarisi ve Tasarım Prensipleri",
+      "title": "Vize Sınavı",
+      "type": "Vize",
+      "dueDate": "2026-11-15",
+      "isCompleted": false,
+      "notes": "1-6. haftalar arası tüm tasarım desenleri dahil"
+    }
+  ],
+  "clientOrders": [
+    {
+      "id": "ord-sample-1",
+      "clientName": "Ayşe Kaya",
+      "clientCompany": "Nova Creative",
+      "projectTitle": "Sosyal Medya Lansman Post Tasarımları",
+      "designType": "Instagram Post / Carousel",
+      "status": "Taslak Hazır",
+      "price": 7500,
+      "paidAmount": 3750,
+      "paymentStatus": "Kısmi Ödeme",
+      "deliveryDate": "2026-10-05",
+      "deliveryUrl": "https://figma.com/@project",
+      "briefNotes": "Koyu minimalist tonlar, 1080x1350 portre boyut"
+    }
+  ],
+  "contentItems": [
+    {
+      "id": "cnt-sample-1",
+      "title": "Next.js 15 ve PWA ile Kişisel OS Geliştirme",
+      "platform": "YouTube",
+      "format": "Uzun Video",
+      "status": "Senaryo",
+      "scheduledDate": "2026-10-10",
+      "notes": "Çevrimdışı önbellekleme ve Supabase sync mimarisi anlatılacak"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-sample-1",
+      "title": "Freelance Tasarım Ön Ödemesi",
+      "type": "income",
+      "amount": 3750,
+      "category": "Müşteri Tasarım",
+      "date": "2026-09-25",
+      "createdAt": "2026-09-25T14:00:00.000Z"
+    },
+    {
+      "id": "tx-sample-2",
+      "title": "ChatGPT Plus & Cloud Abonelik",
+      "type": "expense",
+      "amount": 800,
+      "category": "Yazılım & Abonelik",
+      "date": "2026-09-20",
+      "createdAt": "2026-09-20T11:00:00.000Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "not-sample-1",
+      "title": "Pulse OS Gelecek Sürüm Fikirleri",
+      "content": "Akıllı ders çakışma kontrolü ve haftalık otomatik gelir raporu özeti eklenebilir.",
+      "tags": ["Planlama", "PulseOS"],
+      "isPinned": true,
+      "createdAt": "2026-09-26T18:00:00.000Z",
+      "updatedAt": "2026-09-26T18:00:00.000Z"
+    }
+  ]
+}

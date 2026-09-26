@@ -170,6 +170,117 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 4. Launch the app from your home screen. Pulse will launch in **standalone full-screen mode** without browser address bars or navigation clutter.
 5. Tap **Allow Notifications** to enable the automated 08:00, 20:00, and 15-minute pre-class lecture alerts.
 
+## 📦 Toplu Veri Yükleme, Yedekleme & JSON Şeması (Bulk Data Import & Backup)
+
+Pulse, kullanıcıların verilerini tek tek form doldurmak yerine **toplu JSON içe aktarma** veya **tek tıkla JSON yedekleme** yöntemiyle zahmetsizce yönetebilmesini sağlar. Projeyi klonlayan başka bir geliştirici ya da kullanıcı kendi verilerini saniyeler içinde içeri aktarabilir.
+
+### 1. Arayüzden Nasıl İçe Aktarılır?
+1. Pulse arayüzünde sol alttaki (veya mobilde sağ üstteki) **Ayarlar & DB (Çark)** butonuna tıklayın.
+2. Sayfayı en alta kaydırarak **"Veri Yedekleme & İçe Aktarma"** bölümüne gelin.
+3. Kendi verilerinizi içeren JSON metnini kutuya yapıştırıp **"İçe Aktar"** butonuna basın.
+4. Veriler anında çalışma alanlarınıza yüklenecek ve eğer Supabase oturumunuz açıksa bulut veritabanınızla otomatik senkronize edilecektir!
+5. Mevcut verilerinizi tek tıkla cihazınıza kaydetmek için **"Yedek İndir (JSON)"** butonunu kullanabilirsiniz.
+
+### 2. Hazır Şablon Dosyası (`sample-import.json`)
+Projeyle birlikte gelen [`sample-import.json`](./sample-import.json) dosyasını açıp kendi derslerinizi, projelerinizi ve siparişlerinizi doldurarak doğrudan kopyalayıp içe aktarabilirsiniz.
+
+### 3. JSON Veri Yapısı (Schema Özeti)
+```json
+{
+  "focusTasks": [
+    {
+      "id": "tsk-1",
+      "title": "Bugünün öncelikli işi",
+      "completed": false,
+      "priority": "high",
+      "category": "dev",
+      "dueDate": "2026-09-30"
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj-1",
+      "name": "Yazılım Projesi",
+      "description": "Açıklama",
+      "category": "Web App",
+      "status": "Geliştirmede",
+      "techStack": ["Next.js", "TypeScript", "Tailwind CSS"],
+      "githubUrl": "https://github.com/...",
+      "liveUrl": "https://...",
+      "progress": 80,
+      "tasks": [{ "id": "t-1", "title": "Alt görev", "completed": false }]
+    }
+  ],
+  "courses": [
+    {
+      "id": "crs-1",
+      "name": "Yazılım Mimarisi",
+      "code": "CENG-401",
+      "classroom": "Amfi 2 (B-Blok)",
+      "dayOfWeek": "Pazartesi",
+      "startTime": "09:30",
+      "endTime": "12:20",
+      "credits": 4,
+      "ects": 6,
+      "letterGradeGoal": "AA",
+      "status": "Devam Ediyor"
+    }
+  ],
+  "academicTasks": [
+    {
+      "id": "act-1",
+      "courseName": "Yazılım Mimarisi",
+      "title": "Vize Sınavı",
+      "type": "Vize",
+      "dueDate": "2026-11-15",
+      "isCompleted": false
+    }
+  ],
+  "clientOrders": [
+    {
+      "id": "ord-1",
+      "clientName": "Müşteri Adı",
+      "projectTitle": "Sosyal Medya Tasarımı",
+      "designType": "Instagram Post / Carousel",
+      "status": "Taslak Hazır",
+      "price": 5000,
+      "paidAmount": 2500,
+      "paymentStatus": "Kısmi Ödeme",
+      "deliveryDate": "2026-10-05"
+    }
+  ],
+  "contentItems": [
+    {
+      "id": "cnt-1",
+      "title": "YouTube Video Fikri",
+      "platform": "YouTube",
+      "format": "Uzun Video",
+      "status": "Senaryo",
+      "scheduledDate": "2026-10-10"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-1",
+      "title": "Freelance Geliri",
+      "type": "income",
+      "amount": 2500,
+      "category": "Müşteri Tasarım",
+      "date": "2026-09-25"
+    }
+  ],
+  "notes": [
+    {
+      "id": "not-1",
+      "title": "Not Başlığı",
+      "content": "Not içeriği...",
+      "tags": ["Planlama"],
+      "isPinned": true
+    }
+  ]
+}
+```
+
 ---
 
 ## 🔒 Security & Privacy Architecture
