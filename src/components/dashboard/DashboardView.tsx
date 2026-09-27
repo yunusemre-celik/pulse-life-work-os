@@ -61,6 +61,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenQuickAdd }) 
     .reduce((acc, curr) => acc + curr.amount, 0);
   const netBalance = totalIncome - totalExpense;
 
+  const monthlyRecurringExpense = (state.recurringTransactions || [])
+    .filter((r) => r.isActive && r.type === 'expense')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
   const pendingReceivables = state.clientOrders
     .filter((o) => o.status !== 'Teslim Edildi')
     .reduce((acc, curr) => acc + (curr.price - curr.paidAmount), 0);
@@ -188,7 +192,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenQuickAdd }) 
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span
-              className={`text-2xl font-bold ${
+              className={`text-2xl font-bold font-mono ${
                 netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'
               }`}
             >
@@ -198,6 +202,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenQuickAdd }) 
               <TrendingUp className="w-3 h-3 text-emerald-500" /> +₺{totalIncome.toLocaleString('tr-TR')} gelir
             </span>
           </div>
+          {monthlyRecurringExpense > 0 && (
+            <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400">
+              <span>Sabit Abonelik / Yük:</span>
+              <span className="font-semibold text-rose-500 font-mono">-₺{monthlyRecurringExpense.toLocaleString('tr-TR')}/ay</span>
+            </div>
+          )}
         </div>
       </div>
 

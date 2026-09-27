@@ -135,6 +135,25 @@ export interface Transaction {
     | 'Kişisel Yaşam';
   date: string;
   notes?: string;
+  isRecurring?: boolean;
+  recurringId?: string;
+  deletedAt?: string | null;
+}
+
+export interface RecurringTransaction {
+  id: string;
+  userId?: string;
+  title: string;
+  type: 'income' | 'expense';
+  amount: number;
+  category: Transaction['category'];
+  frequency: 'monthly' | 'yearly' | 'weekly';
+  dayOfMonth: number; // 1 - 31
+  startDate: string; // YYYY-MM-DD
+  isActive: boolean;
+  autoProcess: boolean;
+  lastProcessedMonth?: string; // e.g. "2026-09"
+  notes?: string;
   deletedAt?: string | null;
 }
 
@@ -157,5 +176,6 @@ export interface AppState {
   clientOrders: ClientDesignOrder[];
   contentItems: ContentItem[];
   transactions: Transaction[];
+  recurringTransactions: RecurringTransaction[];
   notes: QuickNote[];
 }

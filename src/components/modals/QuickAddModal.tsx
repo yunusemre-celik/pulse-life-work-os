@@ -11,6 +11,7 @@ import {
   Wallet,
   FileText,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { MainCategory, Priority, ClientDesignOrder, ContentItem, Transaction, DayOfWeek } from '@/types';
@@ -34,6 +35,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     addClientOrder,
     addContentItem,
     addTransaction,
+    addRecurringTransaction,
     addNote,
     state,
   } = useApp();
@@ -103,6 +105,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [txAmount, setTxAmount] = useState(1000);
   const [txCategory, setTxCategory] = useState<Transaction['category']>('Tasarım Geliri');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txIsRecurring, setTxIsRecurring] = useState(false);
+  const [txRecurringDay, setTxRecurringDay] = useState(new Date().getDate());
 
   // 8. Note
   const [noteTitle, setNoteTitle] = useState('');
@@ -196,13 +200,30 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       });
     } else if (activeType === 'transaction') {
       if (!txTitle.trim()) return;
-      addTransaction({
-        title: txTitle.trim(),
-        type: txType,
-        amount: Number(txAmount) || 0,
-        category: txCategory,
-        date: txDate,
-      });
+      if (txIsRecurring) {
+        addRecurringTransaction(
+          {
+            title: txTitle.trim(),
+            type: txType,
+            amount: Number(txAmount) || 0,
+            category: txCategory,
+            frequency: 'monthly',
+            dayOfMonth: txRecurringDay,
+            startDate: txDate,
+            isActive: true,
+            autoProcess: true,
+          },
+          true
+        );
+      } else {
+        addTransaction({
+          title: txTitle.trim(),
+          type: txType,
+          amount: Number(txAmount) || 0,
+          category: txCategory,
+          date: txDate,
+        });
+      }
     } else if (activeType === 'note') {
       if (!noteTitle.trim() && !noteContent.trim()) return;
       addNote({
@@ -932,6 +953,49 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                     className="w-full text-xs px-2.5 py-2 rounded-lg border border-[#e2e2e0] dark:border-[#333] bg-[#fafafa] dark:bg-[#252525] text-neutral-800 dark:text-neutral-200 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Recurring Transaction Toggle */}
+              <div className="pt-1">
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-[#e2e2e0] dark:border-[#333] bg-[#fafafa] dark:bg-[#252525]">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 text-neutral-500" />
+                    <div>
+                      <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
+                        Aylık Düzenli İşlem
+                      </span>
+                      <span className="text-[10px] text-neutral-400 block">
+                        Aylık düzenli abonelik, kira, burs veya maaş
+                      </span>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={txIsRecurring}
+                    onChange={(e) => setTxIsRecurring(e.target.checked)}
+                    className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-400 h-4 w-4 ml-2"
+                  />
+                </div>
+
+                {txIsRecurring && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-800/60 border border-[#e2e2e0] dark:border-[#333] flex items-center justify-between text-xs">
+                    <span className="text-neutral-600 dark:text-neutral-400 font-medium">
+                      Tekrarlama Günü:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-neutral-500 text-[11px]">Her ayın</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={txRecurringDay}
+                        onChange={(e) => setTxRecurringDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
+                        className="w-12 text-center text-xs py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-[#1f1f1f] text-neutral-900 dark:text-neutral-100 font-bold"
+                      />
+                      <span className="text-neutral-500 text-[11px]">. günü</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

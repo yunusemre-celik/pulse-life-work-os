@@ -106,10 +106,30 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     amount NUMERIC NOT NULL,
     category TEXT CHECK (category IN ('Tasarım Geliri', 'Freelance Yazılım', 'Burs / Harçlık', 'Diğer Gelir', 'Yazılım & Abonelik', 'Okul & Eğitim', 'Tasarım Kaynakları', 'Kişisel Yaşam')) NOT NULL,
     date DATE NOT NULL,
-    notes TEXT
+    notes TEXT,
+    is_recurring BOOLEAN DEFAULT false,
+    recurring_id TEXT DEFAULT NULL
 );
 
--- 8. Hızlı Notlar & Fikir Defteri Tablosu
+-- 8. Finans: Düzenli & Tekrarlayan Gelir/Gider Tablosu (Abonelikler, Kira, Burs vb.)
+CREATE TABLE IF NOT EXISTS public.recurring_transactions (
+    id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
+    title TEXT NOT NULL,
+    type TEXT CHECK (type IN ('income', 'expense')) NOT NULL,
+    amount NUMERIC NOT NULL,
+    category TEXT CHECK (category IN ('Tasarım Geliri', 'Freelance Yazılım', 'Burs / Harçlık', 'Diğer Gelir', 'Yazılım & Abonelik', 'Okul & Eğitim', 'Tasarım Kaynakları', 'Kişisel Yaşam')) NOT NULL,
+    frequency TEXT CHECK (frequency IN ('monthly', 'yearly', 'weekly')) DEFAULT 'monthly',
+    day_of_month INTEGER NOT NULL DEFAULT 1,
+    start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    auto_process BOOLEAN NOT NULL DEFAULT true,
+    last_processed_month TEXT,
+    notes TEXT,
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+);
+
+-- 9. Hızlı Notlar & Fikir Defteri Tablosu
 CREATE TABLE IF NOT EXISTS public.quick_notes (
     id TEXT PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
@@ -133,6 +153,7 @@ BEGIN
     ALTER TABLE public.client_orders ALTER COLUMN user_id SET NOT NULL;
     ALTER TABLE public.content_items ALTER COLUMN user_id SET NOT NULL;
     ALTER TABLE public.transactions ALTER COLUMN user_id SET NOT NULL;
+    ALTER TABLE public.recurring_transactions ALTER COLUMN user_id SET NOT NULL;
     ALTER TABLE public.quick_notes ALTER COLUMN user_id SET NOT NULL;
 EXCEPTION
     WHEN others THEN NULL; -- Henüz tablo yoksa veya NULL satır varsa hata verme
@@ -146,6 +167,9 @@ ALTER TABLE public.academic_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP 
 ALTER TABLE public.client_orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 ALTER TABLE public.content_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT false;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS recurring_id TEXT DEFAULT NULL;
+ALTER TABLE public.recurring_transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 ALTER TABLE public.quick_notes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
 -- 7 GÜNDEN ESKİ SİLİNMİŞ VERİLERİ KALICI TEMİZLEME FONKSİYONU (Hard Delete)
@@ -163,6 +187,7 @@ BEGIN
     DELETE FROM public.client_orders WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
     DELETE FROM public.content_items WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
     DELETE FROM public.transactions WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.recurring_transactions WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
     DELETE FROM public.quick_notes WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
 END;
 $$;
@@ -178,6 +203,7 @@ ALTER TABLE public.academic_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.client_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quick_notes ENABLE ROW LEVEL SECURITY;
 
 -- Eski zafiyetli politikaları kaldır (OR user_id IS NULL şartı içerenler)
@@ -188,6 +214,7 @@ DROP POLICY IF EXISTS "Users can only access own academic_tasks" ON public.acade
 DROP POLICY IF EXISTS "Users can only access own client_orders" ON public.client_orders;
 DROP POLICY IF EXISTS "Users can only access own content_items" ON public.content_items;
 DROP POLICY IF EXISTS "Users can only access own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can only access own recurring_transactions" ON public.recurring_transactions;
 DROP POLICY IF EXISTS "Users can only access own quick_notes" ON public.quick_notes;
 
 DROP POLICY IF EXISTS "focus_tasks_strict_policy" ON public.focus_tasks;
@@ -197,6 +224,7 @@ DROP POLICY IF EXISTS "academic_tasks_strict_policy" ON public.academic_tasks;
 DROP POLICY IF EXISTS "client_orders_strict_policy" ON public.client_orders;
 DROP POLICY IF EXISTS "content_items_strict_policy" ON public.content_items;
 DROP POLICY IF EXISTS "transactions_strict_policy" ON public.transactions;
+DROP POLICY IF EXISTS "recurring_transactions_strict_policy" ON public.recurring_transactions;
 DROP POLICY IF EXISTS "quick_notes_strict_policy" ON public.quick_notes;
 
 -- Sıkılaştırılmış ve İstemciyi İzole Eden RLS Politikaları (Yalnızca authenticated kullanıcılar)
@@ -242,7 +270,13 @@ CREATE POLICY "transactions_strict_policy" ON public.transactions
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
--- 8. quick_notes
+-- 8. recurring_transactions
+CREATE POLICY "recurring_transactions_strict_policy" ON public.recurring_transactions
+    FOR ALL TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- 9. quick_notes
 CREATE POLICY "quick_notes_strict_policy" ON public.quick_notes
     FOR ALL TO authenticated
     USING (auth.uid() = user_id)
@@ -258,4 +292,5 @@ CREATE INDEX IF NOT EXISTS idx_academic_tasks_user ON public.academic_tasks(user
 CREATE INDEX IF NOT EXISTS idx_client_orders_user ON public.client_orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_content_items_user ON public.content_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON public.transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_transactions_user ON public.recurring_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_quick_notes_user ON public.quick_notes(user_id);

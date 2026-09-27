@@ -9,5 +9,6 @@ export const INITIAL_DATA: AppState = {
   clientOrders: [],
   contentItems: [],
   transactions: [],
+  recurringTransactions: [],
   notes: [],
 };

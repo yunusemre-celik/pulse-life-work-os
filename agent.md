@@ -81,14 +81,15 @@
   4. `public.academic_tasks`
   5. `public.client_orders`
   6. `public.content_items`
-  7. `public.transactions`
-  8. `public.quick_notes`
+  7. `public.transactions` (with `is_recurring`, `recurring_id`)
+  8. `public.recurring_transactions` (monthly subscriptions, regular incomes, auto-processing day)
+  9. `public.quick_notes`
 - **Row Level Security (RLS)**:
-  - Enabled on **all 8 tables**.
-  - Policies enforce `(auth.uid() = user_id OR user_id IS NULL)`.
+  - Enabled on **all 9 tables**.
+  - Policies enforce strict `(auth.uid() = user_id)`.
   - Authenticated queries automatically bind to the logged-in user's UUID.
 - **Model Mapping (`src/lib/dbMappers.ts`)**:
-  - Automatically translates TypeScript camelCase model properties to PostgreSQL snake_case table columns (e.g. `dayOfWeek` <-> `day_of_week`, `startTime` <-> `start_time`, `deliveryDate` <-> `delivery_date`, etc.).
+  - Automatically translates TypeScript camelCase model properties to PostgreSQL snake_case table columns (e.g. `dayOfWeek` <-> `day_of_week`, `startTime` <-> `start_time`, `deliveryDate` <-> `delivery_date`, `dayOfMonth` <-> `day_of_month`, etc.).
   - Always route Supabase calls through `toDb...` when writing and `fromDb...` when querying.
 
 ---

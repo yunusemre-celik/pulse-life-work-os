@@ -10,6 +10,7 @@ import {
   ClientDesignOrder,
   ContentItem,
   Transaction,
+  RecurringTransaction,
   QuickNote,
 } from '@/types';
 import { INITIAL_DATA } from '@/lib/initialData';
@@ -30,6 +31,8 @@ import {
   fromDbContentItem,
   toDbTransaction,
   fromDbTransaction,
+  toDbRecurringTransaction,
+  fromDbRecurringTransaction,
   toDbNote,
   fromDbNote,
 } from '@/lib/dbMappers';
@@ -103,6 +106,14 @@ interface AppContextType {
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
 
+  // Recurring Transactions
+  addRecurringTransaction: (item: Omit<RecurringTransaction, 'id'>, processNow?: boolean) => void;
+  updateRecurringTransaction: (item: RecurringTransaction) => void;
+  deleteRecurringTransaction: (id: string) => void;
+  toggleRecurringActive: (id: string) => void;
+  processRecurringTransaction: (id: string) => void;
+  checkAndProcessRecurring: () => number;
+
   // Notes
   addNote: (note: Omit<QuickNote, 'id' | 'updatedAt'>) => void;
   updateNote: (note: QuickNote) => void;
@@ -145,7 +156,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        setState(parsed);
+        setState({
+          ...INITIAL_DATA,
+          ...parsed,
+          recurringTransactions: Array.isArray(parsed.recurringTransactions) ? parsed.recurringTransactions : [],
+        });
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DATA));
       }
@@ -356,6 +371,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'client_orders',
       'content_items',
       'transactions',
+      'recurring_transactions',
       'quick_notes',
     ];
 
@@ -420,6 +436,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const filterActive = (arr: any[] | null) => (arr || []).filter((item: any) => !item.deleted_at);
 
+      let activeRecurring: any[] = [];
+      try {
+        const { data: dbRec, error: recErr } = await supabase.from('recurring_transactions').select('*');
+        if (!recErr && dbRec) {
+          activeRecurring = filterActive(dbRec);
+        }
+      } catch {
+        // Safe fallback if table not yet migrated
+      }
+
       const activeProjects = filterActive(dbProjects);
       const activeOrders = filterActive(dbOrders);
       const activeTasks = filterActive(dbTasks);
@@ -434,6 +460,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeOrders.length > 0 ||
         activeTasks.length > 0 ||
         activeTx.length > 0 ||
+        activeRecurring.length > 0 ||
         activeCourses.length > 0 ||
         activeAcadTasks.length > 0 ||
         activeContent.length > 0 ||
@@ -447,6 +474,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           clientOrders: activeOrders.length > 0 ? activeOrders.map(fromDbClientOrder) : current.clientOrders,
           contentItems: activeContent.length > 0 ? activeContent.map(fromDbContentItem) : current.contentItems,
           transactions: activeTx.length > 0 ? activeTx.map(fromDbTransaction) : current.transactions,
+          recurringTransactions: activeRecurring.length > 0 ? activeRecurring.map(fromDbRecurringTransaction) : current.recurringTransactions,
           notes: activeNotes.length > 0 ? activeNotes.map(fromDbNote) : current.notes,
           courses: activeCourses.length > 0 ? activeCourses.map(fromDbCourse) : current.courses,
           academicTasks: activeAcadTasks.length > 0 ? activeAcadTasks.map(fromDbAcademicTask) : current.academicTasks,
@@ -697,6 +725,207 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     softDeleteRecord('transactions', id);
   };
 
+  // Recurring Transactions CRUD & Engine
+  const checkAndProcessRecurring = useCallback((): number => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+    const currentMonthKey = `${year}-${monthStr}`;
+    const currentDay = now.getDate();
+
+    let processedCount = 0;
+
+    setState((prev) => {
+      const existingTxs = prev.transactions || [];
+      const recurringList = prev.recurringTransactions || [];
+
+      const newTxsToAdd: Transaction[] = [];
+      const updatedRecurringList = recurringList.map((r) => {
+        if (!r.isActive || !r.autoProcess) return r;
+
+        const alreadyProcessedInRec = r.lastProcessedMonth === currentMonthKey;
+        const alreadyExistsInTx = existingTxs.some(
+          (t) => t.recurringId === r.id && t.date.startsWith(currentMonthKey) && !t.deletedAt
+        );
+
+        if (!alreadyProcessedInRec && !alreadyExistsInTx && currentDay >= (r.dayOfMonth || 1)) {
+          processedCount++;
+          const dayStr = String(Math.min(r.dayOfMonth || 1, 28)).padStart(2, '0');
+          const newTx: Transaction = {
+            id: `tx-rec-${r.id}-${currentMonthKey}`,
+            userId: user?.id,
+            title: r.title,
+            type: r.type,
+            amount: r.amount,
+            category: r.category,
+            date: `${currentMonthKey}-${dayStr}`,
+            notes: `🔄 Otomatik tekrarlayan işlem (${r.notes ? r.notes + ' - ' : ''}Her ayın ${r.dayOfMonth}. günü)`,
+            isRecurring: true,
+            recurringId: r.id,
+          };
+          newTxsToAdd.push(newTx);
+          return {
+            ...r,
+            lastProcessedMonth: currentMonthKey,
+          };
+        }
+        return r;
+      });
+
+      if (newTxsToAdd.length > 0) {
+        safeSupabaseCall(async (client) => {
+          for (const tx of newTxsToAdd) {
+            await client.from('transactions').insert(toDbTransaction(tx));
+          }
+          for (const rec of updatedRecurringList) {
+            await client.from('recurring_transactions').upsert(toDbRecurringTransaction(rec));
+          }
+        });
+
+        return {
+          ...prev,
+          transactions: [...newTxsToAdd, ...existingTxs],
+          recurringTransactions: updatedRecurringList,
+        };
+      }
+
+      return prev;
+    });
+
+    return processedCount;
+  }, [user?.id]);
+
+  // Run auto-check on initial load
+  useEffect(() => {
+    if (isLoaded) {
+      checkAndProcessRecurring();
+    }
+  }, [isLoaded, checkAndProcessRecurring]);
+
+  const addRecurringTransaction = (item: Omit<RecurringTransaction, 'id'>, processNow?: boolean) => {
+    const newId = `rec-${Date.now()}`;
+    const now = new Date();
+    const year = now.getFullYear();
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+    const currentMonthKey = `${year}-${monthStr}`;
+
+    const newRec: RecurringTransaction = {
+      ...item,
+      userId: user?.id,
+      id: newId,
+      lastProcessedMonth: processNow ? currentMonthKey : undefined,
+    };
+
+    let newTx: Transaction | null = null;
+    if (processNow) {
+      const dayStr = String(Math.min(item.dayOfMonth || 1, 28)).padStart(2, '0');
+      newTx = {
+        id: `tx-rec-${newId}-${currentMonthKey}`,
+        userId: user?.id,
+        title: item.title,
+        type: item.type,
+        amount: item.amount,
+        category: item.category,
+        date: `${currentMonthKey}-${dayStr}`,
+        notes: `🔄 Düzenli işlem (${item.notes ? item.notes + ' - ' : ''}Her ayın ${item.dayOfMonth}. günü)`,
+        isRecurring: true,
+        recurringId: newId,
+      };
+    }
+
+    setState((prev) => ({
+      ...prev,
+      recurringTransactions: [newRec, ...(prev.recurringTransactions || [])],
+      transactions: newTx ? [newTx, ...prev.transactions] : prev.transactions,
+    }));
+
+    safeSupabaseCall(async (client) => {
+      await client.from('recurring_transactions').insert(toDbRecurringTransaction(newRec));
+      if (newTx) {
+        await client.from('transactions').insert(toDbTransaction(newTx));
+      }
+    });
+  };
+
+  const updateRecurringTransaction = (item: RecurringTransaction) => {
+    setState((prev) => ({
+      ...prev,
+      recurringTransactions: (prev.recurringTransactions || []).map((r) => (r.id === item.id ? item : r)),
+    }));
+    safeSupabaseCall((client) =>
+      client.from('recurring_transactions').update(toDbRecurringTransaction(item)).eq('id', item.id)
+    );
+  };
+
+  const deleteRecurringTransaction = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      recurringTransactions: (prev.recurringTransactions || []).filter((r) => r.id !== id),
+    }));
+    softDeleteRecord('recurring_transactions', id);
+  };
+
+  const toggleRecurringActive = (id: string) => {
+    setState((prev) => {
+      const updated = (prev.recurringTransactions || []).map((r) =>
+        r.id === id ? { ...r, isActive: !r.isActive } : r
+      );
+      const target = updated.find((r) => r.id === id);
+      if (target) {
+        safeSupabaseCall((client) =>
+          client.from('recurring_transactions').update({ is_active: target.isActive }).eq('id', id)
+        );
+      }
+      return { ...prev, recurringTransactions: updated };
+    });
+  };
+
+  const processRecurringTransaction = (id: string) => {
+    const target = (state.recurringTransactions || []).find((r) => r.id === id);
+    if (!target) return;
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+    const currentMonthKey = `${year}-${monthStr}`;
+
+    // Prevent duplicates for current month
+    const alreadyProcessed = (state.transactions || []).some(
+      (t) => t.recurringId === id && t.date.startsWith(currentMonthKey) && !t.deletedAt
+    );
+    if (alreadyProcessed) return;
+
+    const dayStr = String(Math.min(target.dayOfMonth || 1, 28)).padStart(2, '0');
+    const newTx: Transaction = {
+      id: `tx-rec-${target.id}-${currentMonthKey}`,
+      userId: user?.id,
+      title: target.title,
+      type: target.type,
+      amount: target.amount,
+      category: target.category,
+      date: `${currentMonthKey}-${dayStr}`,
+      notes: `🔄 Manuel kaydedilen düzenli işlem (${target.notes ? target.notes + ' - ' : ''}Her ayın ${target.dayOfMonth}. günü)`,
+      isRecurring: true,
+      recurringId: target.id,
+    };
+
+    const updatedRec: RecurringTransaction = {
+      ...target,
+      lastProcessedMonth: currentMonthKey,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      transactions: [newTx, ...prev.transactions],
+      recurringTransactions: (prev.recurringTransactions || []).map((r) => (r.id === id ? updatedRec : r)),
+    }));
+
+    safeSupabaseCall(async (client) => {
+      await client.from('transactions').insert(toDbTransaction(newTx));
+      await client.from('recurring_transactions').update(toDbRecurringTransaction(updatedRec)).eq('id', id);
+    });
+  };
+
   // Notes CRUD
   const addNote = (note: Omit<QuickNote, 'id' | 'updatedAt'>) => {
     const newNote: QuickNote = {
@@ -767,6 +996,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           clientOrders: Array.isArray(parsed.clientOrders) ? parsed.clientOrders : (state.clientOrders || []),
           contentItems: Array.isArray(parsed.contentItems) ? parsed.contentItems : (state.contentItems || []),
           transactions: Array.isArray(parsed.transactions) ? parsed.transactions : (state.transactions || []),
+          recurringTransactions: Array.isArray(parsed.recurringTransactions) ? parsed.recurringTransactions : (state.recurringTransactions || []),
           notes: Array.isArray(parsed.notes) ? parsed.notes : (state.notes || []),
         };
         setState(nextState);
@@ -803,6 +1033,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             await supabase
               .from('transactions')
               .upsert(nextState.transactions.map((tx) => ({ ...toDbTransaction(tx), ...(user?.id ? { user_id: user.id } : {}) })));
+          }
+          if (nextState.recurringTransactions && nextState.recurringTransactions.length > 0) {
+            await supabase
+              .from('recurring_transactions')
+              .upsert(nextState.recurringTransactions.map((r) => ({ ...toDbRecurringTransaction(r), ...(user?.id ? { user_id: user.id } : {}) })));
           }
           if (nextState.notes && nextState.notes.length > 0) {
             await supabase
@@ -868,6 +1103,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteContentItem,
         addTransaction,
         deleteTransaction,
+        addRecurringTransaction,
+        updateRecurringTransaction,
+        deleteRecurringTransaction,
+        toggleRecurringActive,
+        processRecurringTransaction,
+        checkAndProcessRecurring,
         addNote,
         updateNote,
         deleteNote,

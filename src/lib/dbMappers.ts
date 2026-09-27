@@ -6,6 +6,7 @@ import {
   ClientDesignOrder,
   ContentItem,
   Transaction,
+  RecurringTransaction,
   QuickNote,
 } from '@/types';
 
@@ -108,6 +109,24 @@ export const toDbTransaction = (t: Transaction) => ({
   category: t.category,
   date: t.date,
   notes: t.notes,
+  is_recurring: t.isRecurring ?? false,
+  recurring_id: t.recurringId ?? null,
+});
+
+export const toDbRecurringTransaction = (r: RecurringTransaction) => ({
+  id: r.id,
+  user_id: r.userId,
+  title: r.title,
+  type: r.type,
+  amount: r.amount,
+  category: r.category,
+  frequency: r.frequency,
+  day_of_month: r.dayOfMonth,
+  start_date: r.startDate,
+  is_active: r.isActive,
+  auto_process: r.autoProcess,
+  last_processed_month: r.lastProcessedMonth ?? null,
+  notes: r.notes,
 });
 
 export const toDbNote = (n: QuickNote) => ({
@@ -225,6 +244,25 @@ export const fromDbTransaction = (db: any): Transaction => ({
   amount: Number(db.amount) || 0,
   category: db.category,
   date: db.date,
+  notes: db.notes,
+  isRecurring: Boolean(db.is_recurring ?? db.isRecurring),
+  recurringId: db.recurring_id || db.recurringId || undefined,
+  deletedAt: db.deleted_at || db.deletedAt || null,
+});
+
+export const fromDbRecurringTransaction = (db: any): RecurringTransaction => ({
+  id: db.id,
+  userId: db.user_id || db.userId,
+  title: db.title,
+  type: db.type,
+  amount: Number(db.amount) || 0,
+  category: db.category,
+  frequency: db.frequency || 'monthly',
+  dayOfMonth: Number(db.day_of_month ?? db.dayOfMonth) || 1,
+  startDate: db.start_date || db.startDate || new Date().toISOString().split('T')[0],
+  isActive: db.is_active !== undefined ? Boolean(db.is_active) : (db.isActive !== undefined ? Boolean(db.isActive) : true),
+  autoProcess: db.auto_process !== undefined ? Boolean(db.auto_process) : (db.autoProcess !== undefined ? Boolean(db.autoProcess) : true),
+  lastProcessedMonth: db.last_processed_month || db.lastProcessedMonth || undefined,
   notes: db.notes,
   deletedAt: db.deleted_at || db.deletedAt || null,
 });
