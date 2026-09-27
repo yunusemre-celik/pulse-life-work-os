@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.quick_notes (
 );
 
 -- ==============================================================================
--- MEVCUT TABLOLAR İÇİN GÜVENLİK YÜKSELTMESİ (MIGRATION / HARDENING)
+-- MEVCUT TABLOLAR İÇİN GÜVENLİK VE SOFT DELETE YÜKSELTMESİ (MIGRATION / HARDENING)
 -- ==============================================================================
 -- Tablolar önceden oluşturulmuşsa user_id kolonlarını NOT NULL yap
 DO $$
@@ -137,6 +137,35 @@ BEGIN
 EXCEPTION
     WHEN others THEN NULL; -- Henüz tablo yoksa veya NULL satır varsa hata verme
 END $$;
+
+-- Soft delete: deleted_at kolonlarını mevcut tablolara güvenle ekle
+ALTER TABLE public.focus_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.academic_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.client_orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.content_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.quick_notes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- 7 GÜNDEN ESKİ SİLİNMİŞ VERİLERİ KALICI TEMİZLEME FONKSİYONU (Hard Delete)
+-- Bu fonksiyon Supabase veritabanında yer kaplamaması için 1 haftayı aşan silinmiş kayıtları tamamen temizler.
+CREATE OR REPLACE FUNCTION public.purge_old_deleted_records()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    DELETE FROM public.focus_tasks WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.projects WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.courses WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.academic_tasks WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.client_orders WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.content_items WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.transactions WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.quick_notes WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+END;
+$$;
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) AKTİFLEŞTİRME VE POLİTİKALAR

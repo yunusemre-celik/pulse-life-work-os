@@ -18,25 +18,57 @@ export interface YoutubeChannelMetrics {
   recentVideos: YoutubeVideo[];
 }
 
+import { getSupabaseClient } from './supabaseClient';
+
 const YOUTUBE_KEY_STORAGE = 'pulse_youtube_api_key';
 const YOUTUBE_CHANNEL_STORAGE = 'pulse_youtube_channel_id';
 
 export function getYoutubeCredentials() {
-  if (typeof window === 'undefined') return { apiKey: '', channelId: '' };
-  return {
-    apiKey: localStorage.getItem(YOUTUBE_KEY_STORAGE) || '',
-    channelId: localStorage.getItem(YOUTUBE_CHANNEL_STORAGE) || '',
-  };
+  const envKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || '';
+  const envChannel = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '';
+
+  if (typeof window === 'undefined') {
+    return { apiKey: envKey, channelId: envChannel };
+  }
+
+  const apiKey = localStorage.getItem(YOUTUBE_KEY_STORAGE) || envKey;
+  const channelId = localStorage.getItem(YOUTUBE_CHANNEL_STORAGE) || envChannel;
+
+  return { apiKey, channelId };
 }
 
-export function saveYoutubeCredentials(apiKey: string, channelId: string) {
+export async function saveYoutubeCredentials(apiKey: string, channelId: string): Promise<boolean> {
+  const cleanKey = apiKey.trim();
+  const cleanChannel = channelId.trim();
+
   if (typeof window !== 'undefined') {
-    if (apiKey.trim()) localStorage.setItem(YOUTUBE_KEY_STORAGE, apiKey.trim());
+    if (cleanKey) localStorage.setItem(YOUTUBE_KEY_STORAGE, cleanKey);
     else localStorage.removeItem(YOUTUBE_KEY_STORAGE);
 
-    if (channelId.trim()) localStorage.setItem(YOUTUBE_CHANNEL_STORAGE, channelId.trim());
+    if (cleanChannel) localStorage.setItem(YOUTUBE_CHANNEL_STORAGE, cleanChannel);
     else localStorage.removeItem(YOUTUBE_CHANNEL_STORAGE);
   }
+
+  // Cloud sync to Supabase user metadata
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.auth.updateUser({
+          data: {
+            youtube_api_key: cleanKey,
+            youtube_channel_id: cleanChannel,
+          },
+        });
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('YouTube cloud sync notice:', err);
+  }
+
+  return false;
 }
 
 export async function fetchYoutubeData(): Promise<YoutubeChannelMetrics> {

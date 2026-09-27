@@ -82,7 +82,7 @@ interface AppContextType {
   // Courses
   addCourse: (course: Omit<AcademicCourse, 'id'>) => void;
   updateCourse: (course: AcademicCourse) => void;
-  deleteCourse: (id: string) => void;
+  deleteCourse: (id: string, code?: string) => void;
 
   // Academic Tasks
   addAcademicTask: (task: Omit<AcademicTask, 'id'>) => void;
@@ -109,11 +109,12 @@ interface AppContextType {
   deleteNote: (id: string) => void;
   togglePinNote: (id: string) => void;
 
-  // Backup & Restore
+  // Backup & Restore & Storage Optimization
   exportDataJson: () => string;
   importDataJson: (json: string) => boolean;
   resetToSampleData: () => void;
   syncWithSupabase: () => Promise<boolean>;
+  purgeDeletedRecords: () => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -172,6 +173,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Helper to sync social credentials between localStorage and Supabase user metadata
+  const syncSocialCredentialsWithCloud = async (currentUser: User, client: SupabaseClient) => {
+    if (typeof window === 'undefined') return;
+    const meta = (currentUser.user_metadata || {}) as Record<string, any>;
+
+    const localIgToken = localStorage.getItem('pulse_instagram_token') || '';
+    const localIgAccount = localStorage.getItem('pulse_instagram_account_id') || '';
+    const localYtKey = localStorage.getItem('pulse_youtube_api_key') || '';
+    const localYtChannel = localStorage.getItem('pulse_youtube_channel_id') || '';
+
+    // 1. Pull from cloud metadata to localStorage if cloud has values
+    if (meta.instagram_token && meta.instagram_token !== localIgToken) {
+      localStorage.setItem('pulse_instagram_token', meta.instagram_token);
+    }
+    if (meta.instagram_account_id && meta.instagram_account_id !== localIgAccount) {
+      localStorage.setItem('pulse_instagram_account_id', meta.instagram_account_id);
+    }
+    if (meta.youtube_api_key && meta.youtube_api_key !== localYtKey) {
+      localStorage.setItem('pulse_youtube_api_key', meta.youtube_api_key);
+    }
+    if (meta.youtube_channel_id && meta.youtube_channel_id !== localYtChannel) {
+      localStorage.setItem('pulse_youtube_channel_id', meta.youtube_channel_id);
+    }
+
+    // 2. If desktop local has them but cloud metadata is empty, automatically upload to cloud
+    const updates: Record<string, string> = {};
+    if (localIgToken && !meta.instagram_token) updates.instagram_token = localIgToken;
+    if (localIgAccount && !meta.instagram_account_id) updates.instagram_account_id = localIgAccount;
+    if (localYtKey && !meta.youtube_api_key) updates.youtube_api_key = localYtKey;
+    if (localYtChannel && !meta.youtube_channel_id) updates.youtube_channel_id = localYtChannel;
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        await client.auth.updateUser({
+          data: {
+            ...meta,
+            ...updates,
+          },
+        });
+      } catch (err) {
+        console.warn('Auto-push social credentials to Supabase metadata notice:', err);
+      }
+    }
+  };
+
   // Supabase Auth Check
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -184,6 +230,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .getSession()
       .then(({ data: { session } }) => {
         setUser(session?.user ?? null);
+        if (session?.user) {
+          syncSocialCredentialsWithCloud(session.user, supabase);
+        }
         setIsAuthChecking(false);
       })
       .catch((err) => {
@@ -195,6 +244,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        syncSocialCredentialsWithCloud(session.user, supabase);
+      }
     });
 
     return () => {
@@ -280,6 +332,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Soft delete helper: marks record with deleted_at timestamp
+  const softDeleteRecord = async (table: string, id: string) => {
+    const now = new Date().toISOString();
+    await safeSupabaseCall(async (client) => {
+      const { error } = await client.from(table).update({ deleted_at: now }).eq('id', id);
+      if (error) {
+        // Fallback to direct delete if deleted_at column is not present in Supabase table
+        console.warn(`Soft delete update notice on ${table}, falling back to hard delete:`, error.message);
+        await client.from(table).delete().eq('id', id);
+      }
+    });
+  };
+
+  // Hard delete helper: permanently deletes soft-deleted records older than 7 days
+  const hardDeleteOldRecords = async () => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const tables = [
+      'focus_tasks',
+      'projects',
+      'courses',
+      'academic_tasks',
+      'client_orders',
+      'content_items',
+      'transactions',
+      'quick_notes',
+    ];
+
+    await safeSupabaseCall(async (client) => {
+      for (const table of tables) {
+        try {
+          await client.from(table).delete().not('deleted_at', 'is', null).lt('deleted_at', sevenDaysAgo);
+        } catch {
+          // Ignore if column doesn't exist yet
+        }
+      }
+    });
+  };
+
+  const purgeDeletedRecords = async (): Promise<{ success: boolean; message: string }> => {
+    await hardDeleteOldRecords();
+    return {
+      success: true,
+      message: '7 günden eski silinmiş kayıtlar Supabase veritabanından kalıcı olarak temizlendi.',
+    };
+  };
+
   // Supabase sync logic
   const syncWithSupabase = useCallback(async (): Promise<boolean> => {
     const supabase = getSupabaseClient();
@@ -290,6 +388,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setIsSyncing(true);
     try {
+      // 1. Purge items soft-deleted more than 7 days ago (Hard Delete to save Supabase quota)
+      await hardDeleteOldRecords();
+
+      // 2. Fetch all tables
       const { data: dbProjects, error: prjErr } = await supabase.from('projects').select('*');
       if (prjErr) throw prjErr;
 
@@ -314,27 +416,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { data: dbAcadTasks, error: acadErr } = await supabase.from('academic_tasks').select('*');
       if (acadErr) throw acadErr;
 
+      // Filter out soft-deleted items (where deleted_at is set)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const filterActive = (arr: any[] | null) => (arr || []).filter((item: any) => !item.deleted_at);
+
+      const activeProjects = filterActive(dbProjects);
+      const activeOrders = filterActive(dbOrders);
+      const activeTasks = filterActive(dbTasks);
+      const activeContent = filterActive(dbContent);
+      const activeTx = filterActive(dbTx);
+      const activeNotes = filterActive(dbNotes);
+      const activeCourses = filterActive(dbCourses);
+      const activeAcadTasks = filterActive(dbAcadTasks);
+
       const hasAnyData =
-        (dbProjects && dbProjects.length > 0) ||
-        (dbOrders && dbOrders.length > 0) ||
-        (dbTasks && dbTasks.length > 0) ||
-        (dbTx && dbTx.length > 0) ||
-        (dbCourses && dbCourses.length > 0) ||
-        (dbAcadTasks && dbAcadTasks.length > 0) ||
-        (dbContent && dbContent.length > 0) ||
-        (dbNotes && dbNotes.length > 0);
+        activeProjects.length > 0 ||
+        activeOrders.length > 0 ||
+        activeTasks.length > 0 ||
+        activeTx.length > 0 ||
+        activeCourses.length > 0 ||
+        activeAcadTasks.length > 0 ||
+        activeContent.length > 0 ||
+        activeNotes.length > 0;
 
       if (hasAnyData) {
         setState((current) => ({
           ...current,
-          focusTasks: dbTasks && dbTasks.length > 0 ? dbTasks.map(fromDbTask) : current.focusTasks,
-          projects: dbProjects && dbProjects.length > 0 ? dbProjects.map(fromDbProject) : current.projects,
-          clientOrders: dbOrders && dbOrders.length > 0 ? dbOrders.map(fromDbClientOrder) : current.clientOrders,
-          contentItems: dbContent && dbContent.length > 0 ? dbContent.map(fromDbContentItem) : current.contentItems,
-          transactions: dbTx && dbTx.length > 0 ? dbTx.map(fromDbTransaction) : current.transactions,
-          notes: dbNotes && dbNotes.length > 0 ? dbNotes.map(fromDbNote) : current.notes,
-          courses: dbCourses && dbCourses.length > 0 ? dbCourses.map(fromDbCourse) : current.courses,
-          academicTasks: dbAcadTasks && dbAcadTasks.length > 0 ? dbAcadTasks.map(fromDbAcademicTask) : current.academicTasks,
+          focusTasks: activeTasks.length > 0 ? activeTasks.map(fromDbTask) : current.focusTasks,
+          projects: activeProjects.length > 0 ? activeProjects.map(fromDbProject) : current.projects,
+          clientOrders: activeOrders.length > 0 ? activeOrders.map(fromDbClientOrder) : current.clientOrders,
+          contentItems: activeContent.length > 0 ? activeContent.map(fromDbContentItem) : current.contentItems,
+          transactions: activeTx.length > 0 ? activeTx.map(fromDbTransaction) : current.transactions,
+          notes: activeNotes.length > 0 ? activeNotes.map(fromDbNote) : current.notes,
+          courses: activeCourses.length > 0 ? activeCourses.map(fromDbCourse) : current.courses,
+          academicTasks: activeAcadTasks.length > 0 ? activeAcadTasks.map(fromDbAcademicTask) : current.academicTasks,
         }));
       }
 
@@ -387,7 +502,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       focusTasks: prev.focusTasks.filter((t) => t.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('focus_tasks').delete().eq('id', id));
+    softDeleteRecord('focus_tasks', id);
   };
 
   // Projects CRUD
@@ -419,7 +534,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       projects: prev.projects.filter((p) => p.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('projects').delete().eq('id', id));
+    softDeleteRecord('projects', id);
   };
 
   const toggleProjectTask = (projectId: string, taskId: string) => {
@@ -458,12 +573,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     safeSupabaseCall((client) => client.from('courses').update(toDbCourse(course)).eq('id', course.id));
   };
 
-  const deleteCourse = (id: string) => {
+  const deleteCourse = (id: string, code?: string) => {
     setState((prev) => ({
       ...prev,
-      courses: prev.courses.filter((c) => c.id !== id),
+      courses: prev.courses.filter((c) => (code ? c.code !== code : c.id !== id)),
     }));
-    safeSupabaseCall((client) => client.from('courses').delete().eq('id', id));
+    if (code) {
+      safeSupabaseCall(async (client) => {
+        const now = new Date().toISOString();
+        const { error } = await client.from('courses').update({ deleted_at: now }).eq('code', code);
+        if (error) {
+          await client.from('courses').delete().eq('code', code);
+        }
+      });
+    } else {
+      softDeleteRecord('courses', id);
+    }
   };
 
   // Academic Tasks CRUD
@@ -496,7 +621,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       academicTasks: prev.academicTasks.filter((t) => t.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('academic_tasks').delete().eq('id', id));
+    softDeleteRecord('academic_tasks', id);
   };
 
   // Client Orders CRUD
@@ -523,7 +648,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       clientOrders: prev.clientOrders.filter((o) => o.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('client_orders').delete().eq('id', id));
+    softDeleteRecord('client_orders', id);
   };
 
   // Content Items CRUD
@@ -550,7 +675,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       contentItems: prev.contentItems.filter((c) => c.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('content_items').delete().eq('id', id));
+    softDeleteRecord('content_items', id);
   };
 
   // Transactions CRUD
@@ -569,7 +694,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       transactions: prev.transactions.filter((t) => t.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('transactions').delete().eq('id', id));
+    softDeleteRecord('transactions', id);
   };
 
   // Notes CRUD
@@ -598,7 +723,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       notes: prev.notes.filter((n) => n.id !== id),
     }));
-    safeSupabaseCall((client) => client.from('quick_notes').delete().eq('id', id));
+    softDeleteRecord('quick_notes', id);
   };
 
   const togglePinNote = (id: string) => {
@@ -751,6 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         importDataJson,
         resetToSampleData,
         syncWithSupabase,
+        purgeDeletedRecords,
       }}
     >
       {children}

@@ -133,6 +133,7 @@ export const fromDbTask = (db: any): FocusTask => ({
   category: db.category || 'personal',
   dueDate: db.due_date || db.dueDate,
   createdAt: db.created_at || db.createdAt || new Date().toISOString(),
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbProject = (db: any): SoftwareProject => ({
@@ -148,6 +149,7 @@ export const fromDbProject = (db: any): SoftwareProject => ({
   progress: Number(db.progress) || 0,
   tasks: Array.isArray(db.tasks) ? db.tasks : [],
   updatedAt: db.updated_at || db.updatedAt || new Date().toISOString(),
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbCourse = (db: any): AcademicCourse => ({
@@ -160,6 +162,7 @@ export const fromDbCourse = (db: any): AcademicCourse => ({
   dayOfWeek: db.day_of_week || db.dayOfWeek,
   startTime: db.start_time || db.startTime,
   endTime: db.end_time || db.endTime,
+  schedules: Array.isArray(db.schedules) ? db.schedules : undefined,
   credits: Number(db.credits) || 3,
   ects: Number(db.ects) || 5,
   midtermGrade: db.midterm_grade ?? db.midtermGrade ?? null,
@@ -167,6 +170,7 @@ export const fromDbCourse = (db: any): AcademicCourse => ({
   letterGradeGoal: db.letter_grade_goal || db.letterGradeGoal || 'AA',
   status: db.status || 'Devam Ediyor',
   colorTag: db.color_tag || db.colorTag || 'blue',
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbAcademicTask = (db: any): AcademicTask => ({
@@ -179,6 +183,7 @@ export const fromDbAcademicTask = (db: any): AcademicTask => ({
   dueDate: db.due_date || db.dueDate,
   isCompleted: Boolean(db.is_completed ?? db.isCompleted),
   notes: db.notes,
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbClientOrder = (db: any): ClientDesignOrder => ({
@@ -195,6 +200,7 @@ export const fromDbClientOrder = (db: any): ClientDesignOrder => ({
   deliveryDate: db.delivery_date || db.deliveryDate,
   deliveryUrl: db.delivery_url || db.deliveryUrl,
   briefNotes: db.brief_notes || db.briefNotes,
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbContentItem = (db: any): ContentItem => ({
@@ -208,6 +214,7 @@ export const fromDbContentItem = (db: any): ContentItem => ({
   hook: db.hook,
   notes: db.notes,
   url: db.url,
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbTransaction = (db: any): Transaction => ({
@@ -219,6 +226,7 @@ export const fromDbTransaction = (db: any): Transaction => ({
   category: db.category,
   date: db.date,
   notes: db.notes,
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });
 
 export const fromDbNote = (db: any): QuickNote => ({
@@ -229,4 +237,5 @@ export const fromDbNote = (db: any): QuickNote => ({
   tags: Array.isArray(db.tags) ? db.tags : [],
   isPinned: Boolean(db.is_pinned ?? db.isPinned),
   updatedAt: db.updated_at || db.updatedAt || new Date().toISOString(),
+  deletedAt: db.deleted_at || db.deletedAt || null,
 });

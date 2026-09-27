@@ -1,3 +1,5 @@
+import { getSupabaseClient } from './supabaseClient';
+
 export interface InstagramMediaItem {
   id: string;
   caption: string;
@@ -23,21 +25,51 @@ const INSTAGRAM_TOKEN_STORAGE = 'pulse_instagram_token';
 const INSTAGRAM_ACCOUNT_ID_STORAGE = 'pulse_instagram_account_id';
 
 export function getInstagramCredentials() {
-  if (typeof window === 'undefined') return { token: '', accountId: '' };
-  return {
-    token: localStorage.getItem(INSTAGRAM_TOKEN_STORAGE) || '',
-    accountId: localStorage.getItem(INSTAGRAM_ACCOUNT_ID_STORAGE) || '',
-  };
+  const envToken = process.env.NEXT_PUBLIC_INSTAGRAM_TOKEN || '';
+  const envAccountId = process.env.NEXT_PUBLIC_INSTAGRAM_ACCOUNT_ID || '';
+
+  if (typeof window === 'undefined') {
+    return { token: envToken, accountId: envAccountId };
+  }
+
+  const token = localStorage.getItem(INSTAGRAM_TOKEN_STORAGE) || envToken;
+  const accountId = localStorage.getItem(INSTAGRAM_ACCOUNT_ID_STORAGE) || envAccountId;
+
+  return { token, accountId };
 }
 
-export function saveInstagramCredentials(token: string, accountId: string) {
+export async function saveInstagramCredentials(token: string, accountId: string): Promise<boolean> {
+  const cleanToken = token.trim();
+  const cleanAccountId = accountId.trim();
+
   if (typeof window !== 'undefined') {
-    if (token.trim()) localStorage.setItem(INSTAGRAM_TOKEN_STORAGE, token.trim());
+    if (cleanToken) localStorage.setItem(INSTAGRAM_TOKEN_STORAGE, cleanToken);
     else localStorage.removeItem(INSTAGRAM_TOKEN_STORAGE);
 
-    if (accountId.trim()) localStorage.setItem(INSTAGRAM_ACCOUNT_ID_STORAGE, accountId.trim());
+    if (cleanAccountId) localStorage.setItem(INSTAGRAM_ACCOUNT_ID_STORAGE, cleanAccountId);
     else localStorage.removeItem(INSTAGRAM_ACCOUNT_ID_STORAGE);
   }
+
+  // Cloud sync to Supabase user metadata for seamless cross-device sync
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.auth.updateUser({
+          data: {
+            instagram_token: cleanToken,
+            instagram_account_id: cleanAccountId,
+          },
+        });
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Instagram cloud sync notice:', err);
+  }
+
+  return false;
 }
 
 export async function fetchInstagramData(): Promise<InstagramProfileMetrics> {

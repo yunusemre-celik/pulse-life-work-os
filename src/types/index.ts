@@ -20,6 +20,7 @@ export interface FocusTask {
   category: MainCategory;
   dueDate?: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 
 export interface SoftwareProject {
@@ -35,6 +36,7 @@ export interface SoftwareProject {
   progress: number; // 0-100
   tasks: { id: string; title: string; completed: boolean }[];
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface CourseSchedule {
@@ -63,6 +65,7 @@ export interface AcademicCourse {
   letterGradeGoal?: string;
   status: 'Devam Ediyor' | 'Tamamlandı' | 'Kaldı';
   colorTag?: string;
+  deletedAt?: string | null;
 }
 
 export interface AcademicTask {
@@ -75,6 +78,7 @@ export interface AcademicTask {
   dueDate: string;
   isCompleted: boolean;
   notes?: string;
+  deletedAt?: string | null;
 }
 
 export interface ClientDesignOrder {
@@ -97,6 +101,7 @@ export interface ClientDesignOrder {
   deliveryDate: string;
   deliveryUrl?: string;
   briefNotes?: string;
+  deletedAt?: string | null;
 }
 
 export interface ContentItem {
@@ -110,6 +115,7 @@ export interface ContentItem {
   hook?: string;
   notes?: string;
   url?: string;
+  deletedAt?: string | null;
 }
 
 export interface Transaction {
@@ -129,6 +135,7 @@ export interface Transaction {
     | 'Kişisel Yaşam';
   date: string;
   notes?: string;
+  deletedAt?: string | null;
 }
 
 export interface QuickNote {
@@ -139,6 +146,7 @@ export interface QuickNote {
   tags: string[];
   isPinned: boolean;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface AppState {

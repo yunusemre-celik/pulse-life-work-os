@@ -20,6 +20,7 @@ import {
   Send,
   DownloadCloud,
   Share2,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import {
@@ -67,10 +68,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     exportDataJson,
     importDataJson,
     resetToSampleData,
+    purgeDeletedRecords,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'general' | 'integrations' | 'backup'>(initialTab);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Soft delete purge state
+  const [purging, setPurging] = useState(false);
+  const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   // Supabase states
   const [supabaseUrl, setSupabaseUrl] = useState('');
@@ -199,12 +206,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTestResult({ success: false, message: 'Supabase bağlantısı kaldırıldı. Lokal moddasınız.' });
   };
 
-  const handleSaveSocialApis = (e: React.FormEvent) => {
+  const handleSaveSocialApis = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveYoutubeCredentials(ytKey, ytChannel);
+    await saveYoutubeCredentials(ytKey, ytChannel);
     setYtSaved(true);
 
-    saveInstagramCredentials(igToken, igAccount);
+    await saveInstagramCredentials(igToken, igAccount);
     setIgSaved(true);
   };
 
@@ -242,6 +249,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     setTestNotifSent(true);
     setTimeout(() => setTestNotifSent(false), 3000);
+  };
+
+  const handleManualPurge = async () => {
+    setPurging(true);
+    try {
+      const res = await purgeDeletedRecords();
+      setPurgeStatus(res.message);
+      setTimeout(() => setPurgeStatus(null), 4000);
+    } catch {
+      setPurgeStatus('Temizleme sırasında hata oluştu.');
+      setTimeout(() => setPurgeStatus(null), 4000);
+    } finally {
+      setPurging(false);
+    }
+  };
+
+  const handleCopyPurgeSql = () => {
+    const sql = `-- SOFT DELETE & 7 GÜNLÜK KALICI TEMİZLEME SQL
+ALTER TABLE public.focus_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.academic_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.client_orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.content_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE public.quick_notes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+CREATE OR REPLACE FUNCTION public.purge_old_deleted_records()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    DELETE FROM public.focus_tasks WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.projects WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.courses WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.academic_tasks WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.client_orders WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.content_items WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.transactions WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+    DELETE FROM public.quick_notes WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days';
+END;
+$$;`;
+    navigator.clipboard.writeText(sql);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 3000);
   };
 
   const handleDownloadBackup = () => {
@@ -727,12 +777,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-xs font-semibold rounded-lg shadow-sm transition-all"
-                >
-                  Sosyal Medya API Bilgilerini Kaydet
-                </button>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
+                  <span className="text-[10px] text-neutral-400">
+                    ☁️ Supabase hesabınıza güvenle senkronize edilir, mobilde de otomatik açılır.
+                  </span>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-xs font-semibold rounded-lg shadow-sm transition-all self-end sm:self-auto cursor-pointer"
+                  >
+                    Sosyal Medya Bilgilerini Kaydet
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -837,6 +892,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Metinden İçe Aktar ve Kaydet</span>
               </button>
+            </div>
+
+            {/* Storage Optimization & Soft/Hard Delete */}
+            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-[#222222] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+                      Akıllı Çöp Kutusu &amp; Depolama Optimizasyonu
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Soft delete &amp; 7 günlük otomatik kalıcı temizlik
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                Uygulamada sildiğiniz dersler veya görevler anında yok edilmez (soft delete). Ancak Supabase bulut veritabanınızda yer kaplamaması için silinme tarihinin üzerinden <strong>1 hafta (7 gün)</strong> geçtikten sonra sistem tarafından otomatik olarak kalıcı (hard delete) olarak tamamen silinir.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleManualPurge}
+                  disabled={purging}
+                  className="px-3 py-1.5 rounded-lg border border-[#e2e2e0] dark:border-[#333] hover:bg-neutral-100 dark:hover:bg-[#252525] text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${purging ? 'animate-spin' : ''}`} />
+                  <span>{purging ? 'Temizleniyor...' : '7 Günden Eski Verileri Şimdi Temizle'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyPurgeSql}
+                  className="px-3 py-1.5 rounded-lg border border-[#e2e2e0] dark:border-[#333] hover:bg-neutral-100 dark:hover:bg-[#252525] text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors flex items-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{sqlCopied ? 'SQL Kopyalandı!' : 'Supabase SQL Kopyala'}</span>
+                </button>
+              </div>
+
+              {purgeStatus && (
+                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pt-1">
+                  ✓ {purgeStatus}
+                </p>
+              )}
             </div>
 
             {/* Method 3: Backup & Reset */}
